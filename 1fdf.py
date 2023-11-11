@@ -2,15 +2,74 @@ import telebot
 import schedule
 import time
 import os
+import sqlite3
+#база данных
+def create(): # создание таблицы
+    connect = sqlite3.connect('data.db')
+    cursor = connect.cursor()
+    zapros = f'''create table if not exists forges(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name Text,
+        lincs TEXT
+    );'''
+    cursor.execute(zapros)
+    connect.commit()
+    cursor.close()
+create()
+
+def read_table(): #чтение всех записей
+    connect = sqlite3.connect('data.db')
+    cursor = connect.cursor()
+    cursor.execute(f'select * FROM forges')
+    table = cursor.fetchall()
+    retrn = []
+    for item in table:
+        retrn.append(item)
+    return retrn
+
+def write_table(name): #создание папки (записи) name - имя папки,linc - адрес канала
+    connect = sqlite3.connect('data.db')
+    cursor = connect.cursor()
+    cursor.execute("INSERT INTO forges (name) VALUES ('{name}')".format(name = name))
+    cursor.close()
+    connect.commit()
+
+def add_linc(name,linc): # Добавление ссылки
+    lincs = None
+    for i in read_table():
+        if i[1] == name:
+            if i[2] == None:
+                lincs = linc
+                break
+            tmp = i[2].split()
+            print(tmp)
+
+            lincs = " ".join(list(set(tmp)))
+            break
+    connect = sqlite3.connect('data.db')
+    cursor = connect.cursor()
+    cursor.execute(f"UPDATE forges SET lincs = '{lincs}' WHERE name = '{name}'")
+    cursor.close()
+    connect.commit()
+
+def delete(id):
+    connection = sqlite3.connect('data.db')
+    cursor = connection.cursor()
+    cursor.execute(f"DELETE FROM forges WHERE id = {id}")
+    connection.commit()
+    connection.close()
+#_______________________________________________________________________________
+#телеграмм-бот
 
 # Указываем токен вашего бота
 bot_token = '6654858930:AAFoLFagxCgVhfIlYSbGJjoynb1DTlqJvwE'
-
 # Создаем экземпляр бота
 bot = telebot.TeleBot(bot_token)
 
-# Словарь для хранения папок и каналов
-folders = {}
+folders = []
+# Список для хранения папок и каналов
+for i in read_table():
+    folders.append(i[1])
 
 # Команды:
 
@@ -19,10 +78,16 @@ folders = {}
 def handle_start(message):
     bot.reply_to(message, "Привет! Я готов получать обновления от вас.")
 
-@bot.message_handler(commands=['myfolders'])
+@bot.message_handler(commands=['select_folder'])
 def handle_myfolders(message):
     bot.reply_to(message, "Ищем папки....")
-    bot.reply_to(f"Твои папки: {folders}")
+    text = ''
+    if len(folders) > 0:
+        for i in read_table():
+            text = i[1] + '\n'
+        bot.reply_to(message,f"Твои папки:\n{text}")
+    else:
+        bot.reply_to(message, "У вас нету папок :(")
 #Обрабатываем команду для создания папки
 @bot.message_handler(commands=['create_folder'])
 def handle_create_folder(message):
@@ -34,7 +99,8 @@ def handle_create_folder(message):
 def save_folder_name(message):
     chat_id = message.chat.id
     folder_name = message.text
-    folders[folder_name] = []
+    write_table(folder_name)
+    folders.append(folder_name)
     bot.reply_to(message, f"Папка {folder_name} успешно создана.")
 
 # Обрабатываем команду для добавления канала в папку
@@ -56,9 +122,9 @@ def save_channel_to_folder(message, channel_link):
     chat_id = message.chat.id
     folder_name = message.text
     if folder_name not in folders:
-        bot.reply_to(message, "Папка не найдена.")
+        bot.reply_to(message, "Папка не найдена :(")
         return
-    folders[folder_name].append(channel_link)
+    add_linc(folder_name,channel_link)
     bot.reply_to(message, f"Канал {channel_link} успешно добавлен в папку {folder_name}.")
 
 # Функция для проверки, является ли сообщение из канала в папке
@@ -83,7 +149,7 @@ def get_updates_job():
     updates = bot.get_updates()
     for update in updates:
         message = update.message
-        for folder_name in folders.keys():
+        for folder_name in folders:
             if is_message_from_channel_in_folder(message, folder_name):
                 send_message_to_private_chat(message)
 
