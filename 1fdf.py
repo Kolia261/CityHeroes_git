@@ -3,6 +3,7 @@ import schedule
 import time
 import os
 import sqlite3
+import random
 #база данных
 def create(): # создание таблицы
     connect = sqlite3.connect('data.db')
@@ -66,6 +67,17 @@ bot_token = '6654858930:AAFoLFagxCgVhfIlYSbGJjoynb1DTlqJvwE'
 # Создаем экземпляр бота
 bot = telebot.TeleBot(bot_token)
 
+texts = ["https://t.me/physics_lib/10419",
+         "https://t.me/stackoverflw/1797",
+         "https://t.me/stackoverflw/1794",
+         "https://t.me/+T1i5nO0m_h01ZDky",
+         "https://t.me/physics_lib/10417",
+         "https://t.me/c/1641577376/1969",
+         "https://t.me/StarshipNewsLive/6957",
+         "https://t.me/sandfacts/1441"
+]
+user_texts = {}
+
 folders = []
 # Список для хранения папок и каналов
 for i in read_table():
@@ -77,6 +89,14 @@ for i in read_table():
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     bot.reply_to(message, "Привет! Я готов получать обновления от вас.")
+
+@bot.message_handler(commands=["shownews"])
+def shownews(message):
+    # Выбираем случайный текст из списка
+    text = random.choice(texts)
+    user_texts[message.from_user.id] = text
+    # Отправляем текст пользователю и просим его переписать его
+    bot.reply_to(message, f":\n{text}")
 
 @bot.message_handler(commands=['select_folder'])
 def handle_myfolders(message):
